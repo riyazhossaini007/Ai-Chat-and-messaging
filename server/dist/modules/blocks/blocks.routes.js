@@ -1,0 +1,11 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.blocksRouter = void 0;
+const express_1 = require("express");
+const requireAuth_1 = require("../../middlewares/requireAuth");
+const blocks_controller_1 = require("./blocks.controller");
+const blocksRouter = (0, express_1.Router)();
+exports.blocksRouter = blocksRouter;
+blocksRouter.get("/", requireAuth_1.requireAuth, blocks_controller_1.getBlocks);
+blocksRouter.post("/", requireAuth_1.requireAuth, blocks_controller_1.postBlock);
+blocksRouter.delete("/:userId", requireAuth_1.requireAuth, blocks_controller_1.deleteBlock);

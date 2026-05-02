@@ -1,0 +1,18 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.callRouter = void 0;
+const express_1 = require("express");
+const requireAuth_1 = require("../../middlewares/requireAuth");
+const requireFeature_1 = require("../../middlewares/requireFeature");
+const call_controller_1 = require("./call.controller");
+const callRouter = (0, express_1.Router)();
+exports.callRouter = callRouter;
+callRouter.post("/start", requireAuth_1.requireAuth, (0, requireFeature_1.requireFeature)("CALLING"), call_controller_1.startCall);
+callRouter.post("/:callId/accept", requireAuth_1.requireAuth, (0, requireFeature_1.requireFeature)("CALLING"), call_controller_1.acceptCall);
+callRouter.post("/:callId/decline", requireAuth_1.requireAuth, (0, requireFeature_1.requireFeature)("CALLING"), call_controller_1.declineCall);
+callRouter.post("/:callId/end", requireAuth_1.requireAuth, (0, requireFeature_1.requireFeature)("CALLING"), call_controller_1.endCall);
+callRouter.post("/:callId/sfu/join", requireAuth_1.requireAuth, (0, requireFeature_1.requireFeature)("CALLING"), call_controller_1.joinSfu);
+callRouter.post("/:callId/sfu/leave", requireAuth_1.requireAuth, (0, requireFeature_1.requireFeature)("CALLING"), call_controller_1.leaveSfu);
+callRouter.post("/:callId/sfu/end", requireAuth_1.requireAuth, (0, requireFeature_1.requireFeature)("CALLING"), call_controller_1.endSfu);
+callRouter.get("/history", requireAuth_1.requireAuth, (0, requireFeature_1.requireFeature)("CALLING"), call_controller_1.getCallHistory);
+callRouter.get("/:callId", requireAuth_1.requireAuth, (0, requireFeature_1.requireFeature)("CALLING"), call_controller_1.getCallById);

@@ -1,0 +1,11 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.settingsRouter = void 0;
+const express_1 = require("express");
+const requireAuth_1 = require("../../middlewares/requireAuth");
+const settings_controller_1 = require("./settings.controller");
+const settingsRouter = (0, express_1.Router)();
+exports.settingsRouter = settingsRouter;
+settingsRouter.get("/", requireAuth_1.requireAuth, settings_controller_1.getSettings);
+settingsRouter.patch("/", requireAuth_1.requireAuth, settings_controller_1.patchSettings);
+settingsRouter.post("/avatar-requests", requireAuth_1.requireAuth, settings_controller_1.postAvatarRequest);

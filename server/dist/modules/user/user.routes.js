@@ -1,0 +1,12 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.userRouter = void 0;
+const express_1 = require("express");
+const requireAuth_1 = require("../../middlewares/requireAuth");
+const user_controller_1 = require("./user.controller");
+const userRouter = (0, express_1.Router)();
+exports.userRouter = userRouter;
+userRouter.get("/me", requireAuth_1.requireAuth, user_controller_1.getMe);
+userRouter.get("/nearby", requireAuth_1.requireAuth, user_controller_1.getNearbyUsers);
+userRouter.patch("/me", requireAuth_1.requireAuth, user_controller_1.patchMe);
+userRouter.delete("/me", requireAuth_1.requireAuth, user_controller_1.deleteMe);

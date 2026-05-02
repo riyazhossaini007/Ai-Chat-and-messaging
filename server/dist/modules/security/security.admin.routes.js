@@ -1,0 +1,15 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.securityAdminRouter = void 0;
+const express_1 = require("express");
+const requireAuth_1 = require("../../middlewares/requireAuth");
+const requirePermission_1 = require("../../middlewares/requirePermission");
+const requireSuperadminStepUp_1 = require("../../middlewares/requireSuperadminStepUp");
+const requireAdminIpAllowlist_1 = require("../../middlewares/requireAdminIpAllowlist");
+const security_admin_controller_1 = require("./security.admin.controller");
+const securityAdminRouter = (0, express_1.Router)();
+exports.securityAdminRouter = securityAdminRouter;
+securityAdminRouter.get("/roles/users", requireAuth_1.requireAuth, (0, requirePermission_1.requirePermission)("security.role.manage"), requireAdminIpAllowlist_1.requireAdminIpAllowlist, security_admin_controller_1.getRoleUsers);
+securityAdminRouter.get("/roles/audit", requireAuth_1.requireAuth, (0, requirePermission_1.requirePermission)("security.role.manage"), requireAdminIpAllowlist_1.requireAdminIpAllowlist, security_admin_controller_1.getRoleAuditLogs);
+securityAdminRouter.post("/roles/assign", requireAuth_1.requireAuth, (0, requirePermission_1.requirePermission)("security.role.manage"), requireAdminIpAllowlist_1.requireAdminIpAllowlist, requireSuperadminStepUp_1.requireSuperadminStepUp, security_admin_controller_1.assignUserRole);
+securityAdminRouter.post("/roles/revoke", requireAuth_1.requireAuth, (0, requirePermission_1.requirePermission)("security.role.manage"), requireAdminIpAllowlist_1.requireAdminIpAllowlist, requireSuperadminStepUp_1.requireSuperadminStepUp, security_admin_controller_1.revokeUserRole);

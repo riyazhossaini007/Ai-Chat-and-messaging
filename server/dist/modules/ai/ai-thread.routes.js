@@ -1,0 +1,13 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.aiThreadRouter = void 0;
+const express_1 = require("express");
+const requireAuth_1 = require("../../middlewares/requireAuth");
+const ai_thread_controller_1 = require("./ai-thread.controller");
+const aiThreadRouter = (0, express_1.Router)();
+exports.aiThreadRouter = aiThreadRouter;
+aiThreadRouter.post("/threads", requireAuth_1.requireAuth, ai_thread_controller_1.postAiThread);
+aiThreadRouter.get("/threads/:threadId", requireAuth_1.requireAuth, ai_thread_controller_1.getAiThread);
+aiThreadRouter.post("/threads/:threadId/turns", requireAuth_1.requireAuth, ai_thread_controller_1.postAiThreadTurn);
+aiThreadRouter.post("/threads/:threadId/share", requireAuth_1.requireAuth, ai_thread_controller_1.postAiThreadShare);
+aiThreadRouter.post("/threads/:threadId/forward", requireAuth_1.requireAuth, ai_thread_controller_1.postAiThreadForward);

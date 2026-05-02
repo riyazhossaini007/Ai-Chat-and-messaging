@@ -1,0 +1,17 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.messageRouter = void 0;
+const express_1 = require("express");
+const requireAuth_1 = require("../../middlewares/requireAuth");
+const message_controller_1 = require("./message.controller");
+const messageRouter = (0, express_1.Router)();
+exports.messageRouter = messageRouter;
+messageRouter.post("/", requireAuth_1.requireAuth, message_controller_1.createMessage);
+messageRouter.post("/forward", requireAuth_1.requireAuth, message_controller_1.forwardMessages);
+messageRouter.post("/delete", requireAuth_1.requireAuth, message_controller_1.deleteMessages);
+messageRouter.post("/:messageId/react", requireAuth_1.requireAuth, message_controller_1.toggleMessageReaction);
+messageRouter.get("/:chatId", requireAuth_1.requireAuth, message_controller_1.getMessages);
+messageRouter.patch("/read/:chatId", requireAuth_1.requireAuth, message_controller_1.markChatRead);
+messageRouter.get("/:messageId/reads", requireAuth_1.requireAuth, message_controller_1.getMessageReads);
+messageRouter.get("/:messageId/reactions", requireAuth_1.requireAuth, message_controller_1.getMessageReactions);
+messageRouter.delete("/:id", requireAuth_1.requireAuth, message_controller_1.deleteMessage);

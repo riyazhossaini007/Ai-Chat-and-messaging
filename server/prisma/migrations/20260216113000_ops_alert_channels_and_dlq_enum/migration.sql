@@ -1,0 +1,2 @@
+-- AlterEnum
+ALTER TYPE "OpsAlertType" ADD VALUE IF NOT EXISTS 'DLQ_GROWTH';

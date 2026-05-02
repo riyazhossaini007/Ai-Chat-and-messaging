@@ -1,0 +1,13 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.jobsRouter = void 0;
+const express_1 = require("express");
+const requireAuth_1 = require("../../middlewares/requireAuth");
+const requirePermission_1 = require("../../middlewares/requirePermission");
+const jobs_controller_1 = require("./jobs.controller");
+const jobsRouter = (0, express_1.Router)();
+exports.jobsRouter = jobsRouter;
+jobsRouter.get("/admin/failed", requireAuth_1.requireAuth, (0, requirePermission_1.requirePermission)("jobs.dlq.read"), jobs_controller_1.getAdminFailedJobs);
+jobsRouter.get("/admin/pending", requireAuth_1.requireAuth, (0, requirePermission_1.requirePermission)("jobs.dlq.read"), jobs_controller_1.getAdminPendingJobs);
+jobsRouter.get("/admin/:jobId", requireAuth_1.requireAuth, (0, requirePermission_1.requirePermission)("jobs.dlq.read"), jobs_controller_1.getAdminJobDetails);
+jobsRouter.post("/admin/retry", requireAuth_1.requireAuth, (0, requirePermission_1.requirePermission)("jobs.dlq.retry"), jobs_controller_1.postAdminRetryJob);

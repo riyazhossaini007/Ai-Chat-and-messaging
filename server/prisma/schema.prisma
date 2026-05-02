@@ -1,0 +1,1544 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  shadowDatabaseUrl = env("SHADOW_DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(uuid())
+  username     String   @unique
+  name         String?
+  phone        String   @unique
+  passwordHash String
+  avatar       String?
+  isVerified   Boolean  @default(false)
+  role         AppRole  @default(USER)
+  status       UserAccountStatus @default(ACTIVE)
+  lastActiveAt DateTime?
+  adminNote    String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  participants      ChatParticipant[]
+  messages          Message[]      @relation("MessageSender")
+  deletedMessages   Message[]      @relation("MessageDeletedBy")
+  hiddenMessages    MessageHidden[]
+  messageReactions  MessageReaction[]
+  messageReads      MessageRead[]
+  groupMembers      GroupMember[]
+  groupsCreated     Group[]        @relation("GroupCreator")
+  groupInvitesMade  GroupInvite[]  @relation("GroupInviteCreator")
+  systemActions     Message[]      @relation("SystemActor")
+  settings          UserSettings?
+  uploadedMedia     MessageMedia[] @relation("MediaUploader")
+  blocksCreated     UserBlock[]    @relation("BlocksByUser")
+  blocksReceived    UserBlock[]    @relation("BlockedUser")
+  aiRequestLogs     AiRequestLog[]
+  creditWallet      UserCreditWallet?
+  creditLedgerEntries CreditLedger[]
+  subscriptions     Subscription[]
+  creditTopUps      CreditTopUp[]
+  reconciliations   UsageReconciliation[]
+  userRoles         UserRole[]
+  configAuditLogs   ConfigAuditLog[]
+  securityEvents    SecurityEvent[]
+  subscriptionWebhookEvents SubscriptionWebhookEvent[]
+  adminStepUpChallenges AdminStepUpChallenge[]
+  adminAuditLogsActor AdminActionAuditLog[] @relation("AdminAuditActor")
+  adminAuditLogsTarget AdminActionAuditLog[] @relation("AdminAuditTarget")
+  auditLogsActor      AuditLog[] @relation("AuditLogActor")
+  entitlementGrants   EntitlementGrant[] @relation("EntitlementGrantUser")
+  entitlementGrantedBy EntitlementGrant[] @relation("EntitlementGrantedBy")
+  entitlementRevokedBy EntitlementGrant[] @relation("EntitlementRevokedBy")
+  aiUsageEvents       AiUsageEvent[]
+  reportsFiled        Report[] @relation("ReportReporter")
+  reportsResolved     Report[] @relation("ReportResolver")
+  callSessionsCreated CallSession[] @relation("CallCreatedBy")
+  callParticipants   CallParticipant[]
+  callEvents         CallEvent[]
+  userSubscriptions  UserSubscription[]
+  aiThreads          AiThread[]        @relation("AiThreadRequester")
+  aiJobs             AiJob[]           @relation("AiJobRequester")
+  knowledgeItems     KnowledgeItem[]   @relation("KnowledgeAuthor")
+  knowledgeCreated   KnowledgeItem[]   @relation("KnowledgeCreator")
+  memoryItems        UserMemory[]
+  memoryPreference   MemoryPreference?
+  aiContextSessions  AIContextSession[]
+}
+
+model Otp {
+  id          String   @id @default(uuid())
+  phoneNumber String
+  code        String
+  attempt     Int      @default(0)
+  expiresAt   DateTime
+  createdAt   DateTime @default(now())
+
+  @@index([phoneNumber])
+  @@index([expiresAt])
+}
+
+model Chat {
+  id            String   @id @default(uuid())
+  type          ChatType
+  createdAt     DateTime @default(now())
+  lastMessageAt DateTime @default(now())
+  encVersion    Int      @default(1)
+  dekWrapped    String?
+  dekKekId      String?
+
+  participants ChatParticipant[]
+  messages     Message[]
+  group        Group?
+  callSessions CallSession[]
+  aiThreads    AiThread[]
+  knowledgeItems KnowledgeItem[]
+  memoryItems  UserMemory[]
+  contextSessions AIContextSession[]
+
+  @@index([lastMessageAt])
+}
+
+model ChatParticipant {
+  id        String   @id @default(uuid())
+  userId    String
+  chatId    String
+  lastReadAt DateTime @default(now())
+  pinned    Boolean  @default(false)
+  pinnedAt  DateTime?
+  archived  Boolean  @default(false)
+  archivedAt DateTime?
+  customOrder Int?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  chat Chat @relation(fields: [chatId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, chatId])
+  @@index([userId])
+  @@index([chatId])
+  @@index([userId, pinned, pinnedAt])
+  @@index([userId, archived, archivedAt])
+  @@index([userId, customOrder])
+}
+
+model Group {
+  id        String   @id @default(uuid())
+  title     String
+  name      String
+  avatar    String?
+  description String?
+  rulesText String?
+  status    GroupStatus @default(ACTIVE)
+  creatorId String
+  chatId    String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  aiAutoExtractEnabled Boolean @default(true)
+  aiWeeklyDigestEnabled Boolean @default(true)
+  aiSemanticSearchEnabled Boolean @default(true)
+
+  chat    Chat          @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  creator User          @relation("GroupCreator", fields: [creatorId], references: [id], onDelete: Cascade)
+  members GroupMember[]
+  invites GroupInvite[]
+  messages Message[]
+  knowledgeItems KnowledgeItem[]
+  memoryItems UserMemory[]
+  groupInsights GroupInsight[]
+  contextSessions AIContextSession[]
+}
+
+model AuditLog {
+  id          String   @id @default(uuid())
+  actorUserId String
+  action      String
+  targetType  String
+  targetId    String?
+  meta        Json?
+  ip          String?
+  userAgent   String?
+  createdAt   DateTime @default(now())
+
+  actor User @relation("AuditLogActor", fields: [actorUserId], references: [id], onDelete: Cascade)
+
+  @@index([actorUserId, createdAt])
+  @@index([action, createdAt])
+  @@index([targetType, targetId])
+}
+
+model EntitlementGrant {
+  id              String                @id @default(uuid())
+  userId          String
+  featureKey      EntitlementFeatureKey
+  expiresAt       DateTime?
+  isRevoked       Boolean               @default(false)
+  grantedByUserId String
+  reason          String?
+  createdAt       DateTime              @default(now())
+  revokedAt       DateTime?
+  revokedByUserId String?
+
+  user       User  @relation("EntitlementGrantUser", fields: [userId], references: [id], onDelete: Cascade)
+  grantedBy  User  @relation("EntitlementGrantedBy", fields: [grantedByUserId], references: [id], onDelete: Cascade)
+  revokedBy  User? @relation("EntitlementRevokedBy", fields: [revokedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([userId, featureKey, isRevoked, expiresAt])
+  @@index([featureKey, isRevoked, expiresAt])
+  @@index([grantedByUserId, createdAt])
+}
+
+model AiUsageEvent {
+  id            String               @id @default(uuid())
+  userId        String
+  modelProvider AiUsageProvider
+  modelName     String
+  tokensIn      Int                  @default(0)
+  tokensOut     Int                  @default(0)
+  costUsd       Float?
+  status        AiUsageEventStatus
+  errorCode     String?
+  createdAt     DateTime             @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([createdAt])
+  @@index([userId, createdAt])
+  @@index([modelProvider, createdAt])
+}
+
+model Report {
+  id               String        @id @default(uuid())
+  reporterUserId   String
+  targetType       ReportTargetType
+  targetId         String
+  reasonCode       String
+  description      String?
+  status           ReportStatus  @default(OPEN)
+  createdAt        DateTime      @default(now())
+  resolvedAt       DateTime?
+  resolvedByUserId String?
+  resolutionNote   String?
+
+  reporter   User  @relation("ReportReporter", fields: [reporterUserId], references: [id], onDelete: Cascade)
+  resolvedBy User? @relation("ReportResolver", fields: [resolvedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
+  @@index([targetType, targetId])
+  @@index([reporterUserId, createdAt])
+}
+
+model GroupMember {
+  id        String    @id @default(uuid())
+  userId    String
+  groupId   String
+  role      GroupRole @default(MEMBER)
+  joinedAt  DateTime  @default(now())
+  leftAt    DateTime?
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  group Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, groupId])
+  @@index([groupId])
+  @@index([groupId, leftAt])
+  @@index([userId, leftAt])
+}
+
+model GroupInvite {
+  id          String   @id @default(uuid())
+  groupId     String
+  token       String   @unique
+  createdById String
+  expiresAt   DateTime?
+  revokedAt   DateTime?
+  createdAt   DateTime @default(now())
+
+  group     Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  createdBy User  @relation("GroupInviteCreator", fields: [createdById], references: [id], onDelete: Cascade)
+
+  @@index([groupId, createdAt])
+}
+
+model Message {
+  id        String        @id @default(uuid())
+  content   String?
+  text      String?
+  cipherText String?
+  iv        String?
+  authTag   String?
+  algo      String?
+  encVersion Int?
+  mediaUrl  String?
+  type      MessageType   @default(TEXT)
+  chatId    String
+  chatType  MessageChatType @default(DM)
+  groupId   String?
+  senderId  String?
+  kind      MessageKind   @default(USER)
+  systemEvent SystemEvent?
+  systemActorId String?
+  status    MessageStatus @default(SENT)
+  meta      Json?
+  createdAt DateTime      @default(now())
+  replyToId String?
+  isForwarded Boolean     @default(false)
+  forwardFromMessageId String?
+  forwardFromSenderId String?
+  deletedForEveryone Boolean @default(false)
+  deletedAt DateTime?
+  deletedById String?
+
+  chat   Chat @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  group  Group? @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  sender User? @relation("MessageSender", fields: [senderId], references: [id], onDelete: SetNull)
+  systemActor User? @relation("SystemActor", fields: [systemActorId], references: [id], onDelete: SetNull)
+  deletedBy User? @relation("MessageDeletedBy", fields: [deletedById], references: [id], onDelete: SetNull)
+  replyTo Message? @relation("MessageReply", fields: [replyToId], references: [id], onDelete: SetNull)
+  replies Message[] @relation("MessageReply")
+  hiddenBy MessageHidden[]
+  reads    MessageRead[]
+  reactions MessageReaction[]
+  mediaMetadata MessageMedia[]
+  aiTargetThreads AiThread[] @relation("AiThreadTargetMessage")
+  knowledgeSourceLinks KnowledgeSourceLink[]
+  memorySourceLinks UserMemorySourceLink[]
+
+  @@index([chatId, createdAt])
+  @@index([groupId, createdAt])
+  @@index([kind, systemEvent])
+  @@index([senderId])
+  @@index([replyToId])
+  @@index([deletedById])
+}
+
+model AiThread {
+  id              String   @id @default(cuid())
+  chatId          String
+  requesterId     String
+  targetMessageId String?
+  title           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  chat            Chat     @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  requester       User     @relation("AiThreadRequester", fields: [requesterId], references: [id], onDelete: Cascade)
+  targetMessage   Message? @relation("AiThreadTargetMessage", fields: [targetMessageId], references: [id], onDelete: SetNull)
+  turns           AiTurn[]
+  jobs            AiJob[]
+
+  @@index([chatId, requesterId, createdAt])
+  @@index([targetMessageId])
+  @@unique([chatId, requesterId, targetMessageId])
+}
+
+model AiTurn {
+  id        String   @id @default(cuid())
+  threadId  String
+  role      AiRole
+  content   String
+  meta      Json?
+  createdAt DateTime @default(now())
+
+  thread    AiThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+
+  @@index([threadId, createdAt])
+}
+
+model AiJob {
+  id          String      @id @default(cuid())
+  threadId    String
+  requesterId String
+  type        AiJobType
+  status      AiJobStatus @default(QUEUED)
+  input       Json
+  result      Json?
+  error       String?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  thread      AiThread    @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  requester   User        @relation("AiJobRequester", fields: [requesterId], references: [id], onDelete: Cascade)
+
+  @@index([threadId, status, createdAt])
+  @@index([requesterId, status, createdAt])
+}
+
+model MessageReaction {
+  id        String   @id @default(uuid())
+  messageId String
+  userId    String
+  emoji     String
+  createdAt DateTime @default(now())
+
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, userId, emoji])
+  @@index([messageId])
+  @@index([userId])
+}
+
+model MessageRead {
+  id        String   @id @default(uuid())
+  messageId String
+  userId    String
+  readAt    DateTime @default(now())
+
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, userId])
+  @@index([userId, readAt])
+}
+
+model MessageHidden {
+  id        String   @id @default(uuid())
+  userId    String
+  messageId String
+  createdAt DateTime @default(now())
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, messageId])
+  @@index([userId])
+  @@index([messageId])
+}
+
+model UserSettings {
+  id                           String   @id @default(uuid())
+  userId                       String   @unique
+  language                     String   @default("en")
+  timeZone                     String   @default("UTC")
+  dateFormat                   DateFormat @default(MDY)
+  autoStart                    Boolean  @default(false)
+  allowMessagesFromNonContacts Boolean  @default(true)
+  lastSeenAudience             PrivacyAudience @default(CONTACTS)
+  profilePhotoAudience         PrivacyAudience @default(EVERYONE)
+  readReceiptsEnabled          Boolean  @default(true)
+  twoFactorState               TwoFactorState @default(OFF)
+  enterToSend                  Boolean  @default(true)
+  autoDownload                 Boolean  @default(true)
+  mediaQuality                 Int      @default(70)
+  createdAt                    DateTime @default(now())
+  updatedAt                    DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model MessageMedia {
+  id         String    @id @default(uuid())
+  messageId  String
+  uploaderId String
+  kind       MediaKind
+  url        String
+  sizeBytes  Int
+  createdAt  DateTime  @default(now())
+
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  uploader User    @relation("MediaUploader", fields: [uploaderId], references: [id], onDelete: Cascade)
+  knowledgeSourceLinks KnowledgeSourceLink[]
+  memorySourceLinks UserMemorySourceLink[]
+
+  @@index([uploaderId])
+  @@index([messageId])
+  @@index([kind])
+}
+
+model UserBlock {
+  id        String   @id @default(uuid())
+  blockerId String
+  blockedId String
+  createdAt DateTime @default(now())
+
+  blocker User @relation("BlocksByUser", fields: [blockerId], references: [id], onDelete: Cascade)
+  blocked User @relation("BlockedUser", fields: [blockedId], references: [id], onDelete: Cascade)
+
+  @@unique([blockerId, blockedId])
+  @@index([blockerId])
+  @@index([blockedId])
+}
+
+model AiRequestLog {
+  id               String          @id @default(uuid())
+  requestId        String          @unique
+  traceId          String?
+  userId           String
+  chatId           String?
+  provider         String
+  providerModelId  String?
+  model            String
+  isStream         Boolean         @default(false)
+  temperature      Float?
+  maxTokens        Int?
+  promptTokens     Int             @default(0)
+  completionTokens Int             @default(0)
+  totalTokens      Int             @default(0)
+  estimatorUsed    Boolean         @default(false)
+  costUsd          Float           @default(0)
+  costCredits      Int             @default(0)
+  latencyMs        Int?
+  ttftMs           Int?
+  streamDurationMs Int?
+  retryCount       Int             @default(0)
+  isRegeneration   Boolean         @default(false)
+  regeneratedFromRequestId String?
+  providerUsageRaw Json?
+  charged          Boolean         @default(false)
+  status           AiRequestStatus @default(RUNNING)
+  errorCode        String?
+  errorMessage     String?
+  startedAt        DateTime        @default(now())
+  streamStartedAt  DateTime?
+  firstTokenAt     DateTime?
+  lastTokenAt      DateTime?
+  streamCompletedAt DateTime?
+  finishedAt       DateTime?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  creditEntries CreditLedger[]
+  reconciliations UsageReconciliation[]
+  contextSessions AIContextSession[]
+
+  @@index([userId, startedAt])
+  @@index([status, startedAt])
+  @@index([requestId, userId])
+}
+
+model UserCreditWallet {
+  id             String   @id @default(uuid())
+  userId         String   @unique
+  balanceCredits Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  user    User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  entries CreditLedger[]
+
+  @@index([userId])
+}
+
+model CreditLedger {
+  id          String           @id @default(uuid())
+  userId      String
+  walletId    String
+  requestId   String?          @unique
+  aiRequestLogId String?
+  type        CreditLedgerType
+  tokens      Int?
+  deltaCredits Int
+  creditsAmount Int?
+  provider    String?
+  model       String?
+  balanceAfter Int
+  note        String?
+  createdAt   DateTime         @default(now())
+
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  wallet    UserCreditWallet @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  aiRequest AiRequestLog?    @relation(fields: [aiRequestLogId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([walletId, createdAt])
+  @@index([requestId])
+}
+
+model Plan {
+  id               String   @id @default(uuid())
+  name             String
+  priceMonthly     Float
+  creditAllowance  Int
+  modelAccess      Json
+  maxTokensPerMonth Int
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  subscriptions Subscription[]
+}
+
+model Subscription {
+  id                     String             @id @default(uuid())
+  userId                 String
+  planId                 String
+  status                 SubscriptionStatus
+  billingProvider        BillingProvider
+  providerCustomerId     String?
+  providerSubscriptionId String?
+  currentPeriodStart     DateTime
+  currentPeriodEnd       DateTime
+  cancelAtPeriodEnd      Boolean            @default(false)
+  createdAt              DateTime           @default(now())
+  updatedAt              DateTime           @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan Plan @relation(fields: [planId], references: [id], onDelete: Restrict)
+  webhookEvents SubscriptionWebhookEvent[]
+
+  @@index([userId, status, currentPeriodEnd])
+}
+
+model CreditTopUp {
+  id                String    @id @default(uuid())
+  userId            String
+  creditsPurchased  Int
+  amountPaid        Float
+  currency          String    @default("USD")
+  billingProvider   BillingProvider
+  providerPaymentId String?
+  createdAt         DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+}
+
+model UsageReconciliation {
+  id             String               @id @default(uuid())
+  requestId      String
+  userId         String
+  storedTokens   Int
+  providerTokens Int
+  delta          Int
+  status         ReconciliationStatus
+  createdAt      DateTime             @default(now())
+
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  aiRequest AiRequestLog @relation(fields: [requestId], references: [requestId], onDelete: Cascade)
+
+  @@index([requestId, createdAt])
+  @@index([status, createdAt])
+}
+
+model AiProviderHealth {
+  id                    String            @id @default(uuid())
+  provider              String            @unique
+  status                ProviderHealthStatus @default(HEALTHY)
+  breakerState          CircuitBreakerState  @default(CLOSED)
+  lastCheckedAt         DateTime?
+  rollingLatencyP50Ms   Int?
+  rollingLatencyP95Ms   Int?
+  errorRate             Float             @default(0)
+  timeoutRate           Float             @default(0)
+  consecutiveFailures   Int               @default(0)
+  consecutiveSuccesses  Int               @default(0)
+  windowStartedAt       DateTime          @default(now())
+  windowRequestCount    Int               @default(0)
+  windowErrorCount      Int               @default(0)
+  windowTimeoutCount    Int               @default(0)
+  latencySamples        Json?
+  openUntil             DateTime?
+  halfOpenTrialCount    Int               @default(0)
+  halfOpenSuccessCount  Int               @default(0)
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+}
+
+model BackgroundJob {
+  id           String              @id @default(uuid())
+  jobId        String              @unique
+  userId       String?
+  requestId    String?
+  type         String
+  payload      Json
+  status       BackgroundJobStatus @default(PENDING)
+  attempts     Int                 @default(0)
+  maxAttempts  Int                 @default(5)
+  nextRunAt    DateTime            @default(now())
+  lastError    String?
+  scheduledAt  DateTime            @default(now())
+  completedAt  DateTime?
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+}
+
+model KnowledgeItem {
+  id                   String                @id @default(uuid())
+  type                 KnowledgeItemType
+  title                String
+  shortSummary         String
+  normalizedContent    String
+  fingerprint          String                @unique
+  sourceConversationId String?
+  sourceGroupId        String?
+  authorUserId         String?
+  createdByUserId      String?
+  confidenceScore      Float                 @default(0.5)
+  visibilityScope      KnowledgeVisibilityScope
+  reviewState          KnowledgeReviewState  @default(PENDING)
+  tags                 String[]
+  sourceWindowStartedAt DateTime?
+  sourceWindowEndedAt  DateTime?
+  meta                 Json?
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+
+  sourceConversation   Chat?                 @relation(fields: [sourceConversationId], references: [id], onDelete: SetNull)
+  sourceGroup          Group?                @relation(fields: [sourceGroupId], references: [id], onDelete: SetNull)
+  author               User?                 @relation("KnowledgeAuthor", fields: [authorUserId], references: [id], onDelete: SetNull)
+  createdBy            User?                 @relation("KnowledgeCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  sourceLinks          KnowledgeSourceLink[]
+
+  @@index([sourceConversationId, createdAt])
+  @@index([sourceGroupId, type, createdAt])
+  @@index([visibilityScope, reviewState, createdAt])
+  @@index([authorUserId, createdAt])
+}
+
+model KnowledgeSourceLink {
+  id              String   @id @default(uuid())
+  knowledgeItemId String
+  messageId       String?
+  fileId          String?
+  chatId          String?
+  groupId         String?
+  excerpt         String?
+  createdAt       DateTime @default(now())
+
+  knowledgeItem KnowledgeItem @relation(fields: [knowledgeItemId], references: [id], onDelete: Cascade)
+  message       Message?       @relation(fields: [messageId], references: [id], onDelete: SetNull)
+  file          MessageMedia?  @relation(fields: [fileId], references: [id], onDelete: SetNull)
+
+  @@index([knowledgeItemId, createdAt])
+  @@index([messageId])
+  @@index([fileId])
+  @@index([chatId, createdAt])
+  @@index([groupId, createdAt])
+}
+
+model UserMemory {
+  id                 String               @id @default(uuid())
+  userId             String
+  title              String
+  shortSummary       String
+  normalizedContent  String
+  privacyScope       MemoryPrivacyScope   @default(PRIVATE)
+  tags               String[]
+  topicKey           String?
+  sourceConversationId String?
+  sourceGroupId      String?
+  pinnedAt           DateTime?
+  archivedAt         DateTime?
+  forgottenAt        DateTime?
+  meta               Json?
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+
+  user               User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sourceConversation Chat?                @relation(fields: [sourceConversationId], references: [id], onDelete: SetNull)
+  sourceGroup        Group?               @relation(fields: [sourceGroupId], references: [id], onDelete: SetNull)
+  sourceLinks        UserMemorySourceLink[]
+
+  @@index([userId, createdAt])
+  @@index([userId, pinnedAt])
+  @@index([userId, archivedAt])
+  @@index([userId, forgottenAt])
+  @@index([topicKey, createdAt])
+}
+
+model UserMemorySourceLink {
+  id           String   @id @default(uuid())
+  userMemoryId String
+  messageId    String?
+  fileId       String?
+  chatId       String?
+  groupId      String?
+  excerpt      String?
+  createdAt    DateTime @default(now())
+
+  userMemory UserMemory   @relation(fields: [userMemoryId], references: [id], onDelete: Cascade)
+  message    Message?     @relation(fields: [messageId], references: [id], onDelete: SetNull)
+  file       MessageMedia? @relation(fields: [fileId], references: [id], onDelete: SetNull)
+
+  @@index([userMemoryId, createdAt])
+  @@index([messageId])
+  @@index([fileId])
+}
+
+model GroupInsight {
+  id                String            @id @default(uuid())
+  groupId           String
+  type              GroupInsightType
+  title             String
+  shortSummary      String
+  normalizedContent String
+  fingerprint       String            @unique
+  status            GroupInsightStatus @default(ACTIVE)
+  sourceWindowStartedAt DateTime?
+  sourceWindowEndedAt DateTime?
+  meta              Json?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  group             Group             @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@index([groupId, type, createdAt])
+  @@index([groupId, status, updatedAt])
+}
+
+model EmbeddingRecord {
+  id          String             @id @default(uuid())
+  ownerType   EmbeddingOwnerType
+  ownerId     String
+  chunkIndex  Int                @default(0)
+  contentHash String
+  textContent String
+  provider    String
+  model       String
+  dimensions  Int
+  vector      Json
+  meta        Json?
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  @@unique([ownerType, ownerId, chunkIndex])
+  @@index([ownerType, ownerId])
+  @@index([contentHash])
+}
+
+model MemoryPreference {
+  id                     String   @id @default(uuid())
+  userId                 String   @unique
+  autoMemoryEnabled      Boolean  @default(true)
+  allowGroupMemory       Boolean  @default(true)
+  allowFileMemory        Boolean  @default(true)
+  excludedChatIds        String[]
+  excludedGroupIds       String[]
+  suppressedTopics       String[]
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model AIContextSession {
+  id               String      @id @default(uuid())
+  userId           String
+  chatId           String?
+  groupId          String?
+  aiRequestLogId   String?
+  mode             AIContextMode
+  query            String
+  selectedMessageId String?
+  pinnedMemoryIds  String[]
+  assembledContext Json
+  tokenBudget      Int         @default(0)
+  createdAt        DateTime    @default(now())
+
+  user         User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  chat         Chat?          @relation(fields: [chatId], references: [id], onDelete: SetNull)
+  group        Group?         @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  aiRequestLog  AiRequestLog? @relation(fields: [aiRequestLogId], references: [id], onDelete: SetNull)
+  responseSources AIResponseSource[]
+
+  @@index([userId, createdAt])
+  @@index([chatId, createdAt])
+  @@index([groupId, createdAt])
+}
+
+model AIResponseSource {
+  id               String   @id @default(uuid())
+  contextSessionId String
+  sourceType       ResponseSourceType
+  sourceId         String
+  title            String?
+  snippet          String?
+  relevanceScore   Float    @default(0)
+  meta             Json?
+  createdAt        DateTime @default(now())
+
+  contextSession AIContextSession @relation(fields: [contextSessionId], references: [id], onDelete: Cascade)
+
+  @@index([contextSessionId, relevanceScore])
+  @@index([sourceType, sourceId])
+}
+
+model SystemConfig {
+  key        String   @id
+  value      String
+  updatedAt  DateTime @updatedAt
+  createdAt  DateTime @default(now())
+}
+
+model ProviderPricing {
+  id            String   @id @default(uuid())
+  provider      String
+  model         String
+  inputUsdPer1M Float
+  outputUsdPer1M Float
+  effectiveFrom DateTime
+  pricingVersion Int
+  createdAt     DateTime @default(now())
+
+  @@unique([provider, model, effectiveFrom])
+  @@index([provider, model, effectiveFrom])
+}
+
+model DailyAiCost {
+  id               String   @id @default(uuid())
+  date             DateTime
+  provider         String
+  model            String
+  requests         Int      @default(0)
+  promptTokens     Int      @default(0)
+  completionTokens Int      @default(0)
+  totalTokens      Int      @default(0)
+  costUsd          Float    @default(0)
+  creditsCharged   Int      @default(0)
+  refunds          Int      @default(0)
+  paywallBlocks    Int      @default(0)
+  regenCount       Int      @default(0)
+  avgLatencyMs     Float    @default(0)
+  p95LatencyMs     Int      @default(0)
+  errorRate        Float    @default(0)
+  revenueUsd       Float    @default(0)
+  marginUsd        Float    @default(0)
+  marginPct        Float    @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@unique([date, provider, model])
+  @@index([date, provider, model])
+}
+
+model OpsAlert {
+  id             String         @id @default(uuid())
+  type           OpsAlertType
+  severity       OpsAlertSeverity
+  status         OpsAlertStatus @default(OPEN)
+  dedupeKey      String         @unique
+  message        String
+  provider       String?
+  model          String?
+  details        Json?
+  triggeredAt    DateTime       @default(now())
+  acknowledgedAt DateTime?
+  resolvedAt     DateTime?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  @@index([type, status, createdAt])
+  @@index([provider, model, createdAt])
+}
+
+model SubscriptionWebhookEvent {
+  id                     String                         @id @default(uuid())
+  provider               BillingProvider
+  eventId                String
+  eventType              String
+  providerCreatedAt      DateTime?
+  status                 SubscriptionWebhookEventStatus @default(RECEIVED)
+  signatureVerified      Boolean                        @default(false)
+  attemptCount           Int                            @default(1)
+  ignoredOutOfOrder      Boolean                        @default(false)
+  errorMessage           String?
+  rawPayload             Json
+  providerSubscriptionId String?
+  providerCustomerId     String?
+  subscriptionId         String?
+  userId                 String?
+  receivedAt             DateTime                       @default(now())
+  processedAt            DateTime?
+  createdAt              DateTime                       @default(now())
+  updatedAt              DateTime                       @updatedAt
+
+  subscription           Subscription?                  @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+  user                   User?                          @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@unique([provider, eventId])
+  @@index([provider, providerSubscriptionId, providerCreatedAt])
+  @@index([status, receivedAt])
+}
+
+model Role {
+  id          String           @id @default(uuid())
+  name        AppRole          @unique
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  users       UserRole[]
+  permissions RolePermission[]
+}
+
+model Permission {
+  id          String           @id @default(uuid())
+  key         String           @unique
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  roles       RolePermission[]
+}
+
+model RolePermission {
+  id           String      @id @default(uuid())
+  roleId       String
+  permissionId String
+  createdAt    DateTime    @default(now())
+
+  role         Role        @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission  @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, permissionId])
+  @@index([roleId])
+  @@index([permissionId])
+}
+
+model UserRole {
+  id         String   @id @default(uuid())
+  userId     String
+  roleId     String
+  createdAt  DateTime @default(now())
+
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role       Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, roleId])
+  @@index([userId])
+  @@index([roleId])
+}
+
+model AiConfig {
+  id            String   @id
+  enabledModels Json
+  multipliers   Json
+  limits        Json
+  cooldowns     Json
+  version       Int      @default(1)
+  updatedAt     DateTime @updatedAt
+  createdAt     DateTime @default(now())
+}
+
+model ConfigAuditLog {
+  id            String   @id @default(uuid())
+  actorUserId   String
+  action        String
+  before        Json
+  after         Json
+  diff          Json
+  reason        String?
+  ip            String?
+  userAgent     String?
+  requestId     String
+  configVersion Int
+  signature     String
+  previousHash  String?
+  hash          String   @unique
+  createdAt     DateTime @default(now())
+
+  actor         User     @relation(fields: [actorUserId], references: [id], onDelete: Cascade)
+
+  @@index([actorUserId, createdAt])
+  @@index([action, createdAt])
+}
+
+model SecurityEvent {
+  id          String            @id @default(uuid())
+  userId      String?
+  type        SecurityEventType
+  route       String?
+  ip          String?
+  userAgent   String?
+  requestId   String?
+  details     Json?
+  createdAt   DateTime          @default(now())
+
+  user        User?             @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([type, createdAt])
+  @@index([userId, createdAt])
+}
+
+model AdminStepUpChallenge {
+  id                String   @id @default(uuid())
+  userId            String
+  reason            String
+  otpHash           String
+  attempts          Int      @default(0)
+  verifiedAt        DateTime?
+  expiresAt         DateTime
+  sessionTokenHash  String?
+  sessionExpiresAt  DateTime?
+  usedAt            DateTime?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([expiresAt, sessionExpiresAt])
+}
+
+model AdminActionAuditLog {
+  id            String   @id @default(uuid())
+  actorUserId   String
+  targetUserId  String?
+  action        String
+  reason        String?
+  before        Json?
+  after         Json?
+  ip            String?
+  userAgent     String?
+  requestId     String
+  signature     String
+  previousHash  String?
+  hash          String   @unique
+  createdAt     DateTime @default(now())
+
+  actor         User     @relation("AdminAuditActor", fields: [actorUserId], references: [id], onDelete: Cascade)
+  target        User?    @relation("AdminAuditTarget", fields: [targetUserId], references: [id], onDelete: SetNull)
+
+  @@index([actorUserId, createdAt])
+  @@index([targetUserId, createdAt])
+  @@index([action, createdAt])
+}
+
+model CallSession {
+  id         String   @id @default(uuid())
+  type       CallType
+  isGroup    Boolean  @default(false)
+  chatId     String?
+  createdBy  String
+  hostUserId String
+  sfuProvider SfuProvider @default(NONE)
+  roomName   String?
+  status     CallStatus @default(ringing)
+  startedAt  DateTime?
+  connectedAt DateTime?
+  endedAt    DateTime?
+  durationSec Int     @default(0)
+  failureReason String?
+  region     String?
+  meta       Json?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  chat         Chat?              @relation(fields: [chatId], references: [id], onDelete: SetNull)
+  creator      User               @relation("CallCreatedBy", fields: [createdBy], references: [id], onDelete: Cascade)
+  participants CallParticipant[]
+  events       CallEvent[]
+
+  @@index([createdBy, createdAt])
+  @@index([hostUserId, createdAt])
+  @@index([chatId, createdAt])
+  @@index([roomName])
+  @@index([status, createdAt])
+}
+
+model CallParticipant {
+  id         String                @id @default(uuid())
+  callId     String
+  userId     String
+  role       CallParticipantRole
+  joinedAt   DateTime?
+  leftAt     DateTime?
+  joinMethod CallJoinMethod @default(INVITE)
+  status     CallParticipantStatus @default(ringing)
+  deviceInfo Json?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  callSession CallSession @relation(fields: [callId], references: [id], onDelete: Cascade)
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([callId, userId])
+  @@index([userId, createdAt])
+  @@index([callId, status])
+  @@index([userId, leftAt])
+}
+
+model CallEvent {
+  id        String   @id @default(uuid())
+  callId    String
+  userId    String?
+  eventType String
+  payload   Json?
+  createdAt DateTime @default(now())
+
+  callSession CallSession @relation(fields: [callId], references: [id], onDelete: Cascade)
+  user        User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([callId, createdAt])
+  @@index([userId, createdAt])
+  @@index([eventType, createdAt])
+}
+
+model UserSubscription {
+  id         String   @id @default(uuid())
+  userId     String
+  plan       String
+  status     UserSubscriptionStatus @default(active)
+  validUntil DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status, validUntil])
+  @@index([validUntil])
+}
+
+enum ChatType {
+  DIRECT
+  GROUP
+  AI
+}
+
+enum MessageType {
+  TEXT
+  IMAGE
+  VIDEO
+  FILE
+}
+
+enum MessageStatus {
+  SENT
+  DELIVERED
+  READ
+}
+
+enum UserAccountStatus {
+  ACTIVE
+  BANNED
+  DELETED
+}
+
+enum GroupStatus {
+  ACTIVE
+  FROZEN
+  DELETED
+}
+
+enum GroupRole {
+  CREATOR
+  ADMIN
+  MEMBER
+}
+
+enum MessageKind {
+  USER
+  SYSTEM
+}
+
+enum MessageChatType {
+  DM
+  GROUP
+  AI
+}
+
+enum SystemEvent {
+  MEMBER_JOIN
+  MEMBER_LEAVE
+  MEMBER_ADDED
+  MEMBER_REMOVED
+  ADMIN_PROMOTED
+  ADMIN_DEMOTED
+  GROUP_UPDATED
+  RULES_UPDATED
+}
+
+enum DateFormat {
+  MDY
+  DMY
+  YMD
+}
+
+enum PrivacyAudience {
+  EVERYONE
+  CONTACTS
+  NOBODY
+}
+
+enum TwoFactorState {
+  OFF
+  SETUP_REQUIRED
+  ON
+}
+
+enum MediaKind {
+  IMAGE
+  VIDEO
+  AUDIO
+  DOCUMENT
+}
+
+enum AiRequestStatus {
+  RUNNING
+  OK
+  ERROR
+  CANCELLED
+}
+
+enum CreditLedgerType {
+  AI_USAGE
+  MANUAL_ADJUSTMENT
+  PURCHASE
+  REFUND
+  DEBIT
+  CREDIT
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  CANCELLED
+  EXPIRED
+  PAST_DUE
+}
+
+enum BillingProvider {
+  STRIPE
+  RAZORPAY
+  MANUAL
+}
+
+enum ReconciliationStatus {
+  OK
+  MISMATCH
+  ADJUSTED
+}
+
+enum ProviderHealthStatus {
+  HEALTHY
+  DEGRADED
+  DOWN
+}
+
+enum CircuitBreakerState {
+  CLOSED
+  OPEN
+  HALF_OPEN
+}
+
+enum BackgroundJobStatus {
+  PENDING
+  RUNNING
+  SUCCESS
+  FAILED
+  DLQ
+}
+
+enum AppRole {
+  USER
+  MODERATOR
+  ADMIN
+  SUPERADMIN
+}
+
+enum EntitlementFeatureKey {
+  PRO_ACCESS
+  AI_UNLIMITED
+  CALLING
+  GROUP_CALLING
+  NO_ADS
+}
+
+enum AiUsageProvider {
+  OPENAI
+  OPENROUTER
+}
+
+enum AiUsageEventStatus {
+  OK
+  ERROR
+}
+
+enum ReportTargetType {
+  USER
+  MESSAGE
+  GROUP
+  CALL
+}
+
+enum ReportStatus {
+  OPEN
+  IN_REVIEW
+  RESOLVED
+  REJECTED
+}
+
+enum SecurityEventType {
+  ACCESS_DENIED
+  RATE_LIMIT_VIOLATION
+  PROMPT_INJECTION_ATTEMPT
+  DATA_EXFIL_ATTEMPT
+  AUDIT_CHAIN_FAILURE
+  SUSPICIOUS_ACTIVITY
+  PAYWALL_BLOCK
+  CIRCUIT_OPEN
+  PROVIDER_DOWN
+  BILLING_ANOMALY
+}
+
+enum OpsAlertType {
+  SPEND_SPIKE
+  ERROR_SPIKE
+  PROVIDER_DOWNTIME
+  BILLING_ANOMALY
+  ESTIMATOR_SPIKE
+  DLQ_GROWTH
+}
+
+enum OpsAlertSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum OpsAlertStatus {
+  OPEN
+  ACKNOWLEDGED
+  RESOLVED
+}
+
+enum SubscriptionWebhookEventStatus {
+  RECEIVED
+  PROCESSED
+  IGNORED
+  ERROR
+}
+
+enum CallType {
+  VOICE
+  VIDEO
+}
+
+enum CallStatus {
+  idle
+  ringing
+  accepted
+  in_progress
+  ended
+  missed
+  declined
+  failed
+  busy
+  timeout
+}
+
+enum CallParticipantRole {
+  CALLER
+  CALLEE
+}
+
+enum CallParticipantStatus {
+  ringing
+  accepted
+  declined
+  missed
+  busy
+  ended
+}
+
+enum CallJoinMethod {
+  INVITE
+  JOIN
+}
+
+enum UserSubscriptionStatus {
+  active
+  inactive
+}
+
+enum AiRole {
+  USER
+  AI
+}
+
+enum AiJobStatus {
+  QUEUED
+  RUNNING
+  DONE
+  FAILED
+}
+
+enum AiJobType {
+  GENERAL
+  SUMMARIZE
+  EXPLAIN
+  TRANSLATE
+}
+
+enum SfuProvider {
+  NONE
+  LIVEKIT
+  MEDIASOUP
+}
+
+enum KnowledgeItemType {
+  SUMMARY
+  TASK
+  DECISION
+  IDEA
+  FACT
+  FOLLOW_UP
+  MEETING_NOTE
+  ISSUE
+  RISK
+  MILESTONE
+}
+
+enum KnowledgeReviewState {
+  PENDING
+  CONFIRMED
+  DISMISSED
+}
+
+enum KnowledgeVisibilityScope {
+  PRIVATE
+  CHAT
+  GROUP
+}
+
+enum MemoryPrivacyScope {
+  PRIVATE
+  SHARED_GROUP
+}
+
+enum GroupInsightType {
+  WEEKLY_SUMMARY
+  DECISION
+  TASK
+  BLOCKER
+  TOPIC
+  KEY_FILE
+  CHANGELOG
+}
+
+enum GroupInsightStatus {
+  ACTIVE
+  RESOLVED
+  ARCHIVED
+}
+
+enum EmbeddingOwnerType {
+  MESSAGE
+  FILE
+  KNOWLEDGE
+  MEMORY
+  GROUP_INSIGHT
+}
+
+enum AIContextMode {
+  SUMMARIZE
+  ANSWER_QUESTION
+  EXTRACT_TASKS
+  EXPLAIN
+  SEARCH_MEMORY
+  PROJECT_UPDATE
+}
+
+enum ResponseSourceType {
+  MESSAGE
+  FILE
+  KNOWLEDGE
+  MEMORY
+  GROUP_INSIGHT
+}

@@ -1,0 +1,147 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+.scrollbar-hide {
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+
+.scrollbar-color {
+  scrollbar-color: black;
+  scrollbar-track-color: transparent;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 220ms;
+  animation-timing-function: ease-in-out;
+}
+
+/* Global scrollbar styling */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.35) transparent;
+}
+*::-webkit-scrollbar {
+  width: 10px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  background-color: rgba(255, 255, 255, 0.35);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+/* Dot animation */
+@keyframes pulse {
+  0% {
+    opacity: 0.4;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0.4;
+  }
+}
+
+.dot-pulse {
+  animation: pulse 1.2s infinite ease-in-out;
+}
+
+@keyframes group-dot-pulse {
+  0% {
+    opacity: 0.45;
+    transform: scale(0.95);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.05);
+  }
+  100% {
+    opacity: 0.45;
+    transform: scale(0.95);
+  }
+}
+
+.group-dot-pulse {
+  animation: group-dot-pulse 420ms infinite ease-in-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .group-dot-pulse {
+    animation: none;
+  }
+}
+
+
+
+/* RIGHT (my message) */
+/*.message-bubble-right {
+  border-top-right-radius: 10px;
+  border-top-left-radius: 10px;
+  border-bottom-left-radius: 10px;
+
+
+  position: relative;
+}
+
+.message-bubble-right::after {
+  content: '';
+	position: absolute;
+	bottom: 0;
+  right: 0;
+	width: 0;
+	height: 0;
+	border: 20px solid transparent;
+	border-top-color: #27272a;
+	border-bottom: 4px;
+	border-right: 0px;
+	margin-right: 0px;
+	margin-bottom: -12px;
+  transform: rotateX(45deg);
+}*/
+
+/* LEFT (incoming message) */
+/*.message-bubble-left {
+  border-top-right-radius: 10px;
+  border-bottom-right-radius: 10px;
+  border-bottom-left-radius: 10px;
+  position: relative;
+}
+
+.message-bubble-left::after {
+  content: '';
+	position: absolute;
+	top: 0;
+	left: 0;
+	width: 0;
+	height: 0;
+	border: 20px solid transparent;
+	border-bottom-color: #1e293b;
+	border-top: 4px;
+	border-left: 0;
+	margin-left: 0px;
+	margin-top: -12px;
+  
+  
+}*/
