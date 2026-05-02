@@ -3,4 +3,4 @@ server/.env
 .env.local
 .env.*
 !.env.example
-readme.md
+README.md
